@@ -1,11 +1,11 @@
 package main
 
 import (
-	"database/sql"
 	"log"
 	"net/http"
 
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/jinzhu/gorm"
+	_ "github.com/jinzhu/gorm/dialects/sqlite"
 
 	"github.com/gin-gonic/gin"
 )
@@ -22,8 +22,8 @@ func main() {
 	r.Run()
 }
 
-func getConnection() *sql.DB {
-	db, err := sql.Open("sqlite3", "./db/memoapp.db")
+func getConnection() *gorm.DB {
+	db, err := gorm.Open("sqlite3", "./db/memoapp.db")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -32,7 +32,7 @@ func getConnection() *sql.DB {
 
 // Memo struct
 type Memo struct {
-	ID          int64
+	ID          int64 `gorm:"primary_key"`
 	Subject     string
 	Description string
 	CreatedAt   string
@@ -42,7 +42,7 @@ func getMemoList(c *gin.Context) {
 	db := getConnection()
 	defer db.Close()
 
-	rows, err := db.Query("select id, subject, description, created_at from memo order by created_at")
+	rows, err := db.Raw("select id, subject, description, created_at from memo order by created_at", nil).Rows()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -50,20 +50,11 @@ func getMemoList(c *gin.Context) {
 
 	memoList := []Memo{}
 	for rows.Next() {
-		var id int64
-		var subject string
-		var description string
-		var createdAt string
-		err := rows.Scan(&id, &subject, &description, &createdAt)
+		var memo Memo
+		err := db.ScanRows(rows, &memo)
 		if err != nil {
 			log.Fatal(err)
 		}
-
-		memo := Memo{}
-		memo.ID = id
-		memo.Subject = subject
-		memo.Description = description
-		memo.CreatedAt = createdAt
 		memoList = append(memoList, memo)
 	}
 
@@ -84,16 +75,7 @@ func addMemo(c *gin.Context) {
 	db := getConnection()
 	defer db.Close()
 
-	stmt, err := db.Prepare("insert into memo (subject, description, created_at) values (?, ?, datetime('now', 'localtime'))")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer stmt.Close()
-
-	_, err = stmt.Exec(subject, description)
-	if err != nil {
-		log.Fatal(err)
-	}
+	db.Exec("insert into memo (subject, description, created_at) values (?, ?, datetime('now', 'localtime'))", subject, description)
 
 	c.Redirect(http.StatusMovedPermanently, "/")
 }
@@ -103,16 +85,7 @@ func deleteMemo(c *gin.Context) {
 	db := getConnection()
 	defer db.Close()
 
-	stmt, err := db.Prepare("delete from memo where id = ?")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer stmt.Close()
-
-	_, err = stmt.Exec(id)
-	if err != nil {
-		log.Fatal(err)
-	}
+	db.Exec("delete from memo where id = ?", id)
 
 	c.Redirect(http.StatusMovedPermanently, "/")
 }
