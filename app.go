@@ -75,7 +75,11 @@ func addMemo(c *gin.Context) {
 	db := getConnection()
 	defer db.Close()
 
-	db.Exec("insert into memo (subject, description, created_at) values (?, ?, datetime('now', 'localtime'))", subject, description)
+	ret := db.Exec("insert into memo (subject, description, created_at) values (?, ?, datetime('now', 'localtime'))", subject, description)
+	if ret.Error != nil {
+		log.Fatal(ret.Error)
+	}
+	log.Printf("[addMemo] %d rows affected", ret.RowsAffected)
 
 	c.Redirect(http.StatusMovedPermanently, "/")
 }
@@ -85,7 +89,11 @@ func deleteMemo(c *gin.Context) {
 	db := getConnection()
 	defer db.Close()
 
-	db.Exec("delete from memo where id = ?", id)
+	ret := db.Exec("delete from memo where id = ?", id)
+	if ret.Error != nil {
+		log.Fatal(ret.Error)
+	}
+	log.Printf("[deleteMemo] %d rows affected", ret.RowsAffected)
 
 	c.Redirect(http.StatusMovedPermanently, "/")
 }
